@@ -30,6 +30,7 @@ def FilterData(df):
     df = df.loc[df['Indicator Code'].isin(indicator)]
     return df
 
+
 def Preprocess(df):
     """
     This function preprocesses the data
@@ -38,8 +39,26 @@ def Preprocess(df):
     df.fillna(0, inplace=True)
     return df
 
+
+def ElectricityConsumption(df):
+    """
+    """
+    econs_df =  df.loc[df['Indicator Code'] == 'EG.USE.ELEC.KH.PC']
+    econs_df.drop(['Indicator Name', 'Indicator Code'],
+                  axis=1, inplace=True)
+    econs_df.reset_index(drop=True, inplace=True)
+    econs_df.rename(columns={'United Kingdom': 'UK',
+                             'Russian Federation': 'Russia',
+                             'United States': 'US'}, inplace=True)
+    econs_df = econs_df.rename(columns=econs_df.iloc[0])
+    econs_df.drop(labels=['Country Name'],axis=0, inplace=True)
+    return econs_df
+
+
 # Reads data from the world bank climate data
 df = pd.read_csv('API_19_DS2_en_csv_v2_4902199.csv', skiprows=4)
 # filters the data for the required countries
 df = FilterData(df)
 df = Preprocess(df)
+
+
