@@ -42,22 +42,22 @@ def Preprocess(df):
     return df
 
 
-def ElectricityConsumption(df):
+def VariableTrend(df, indicator):
     """
     """
-    econs_df =  df.loc[df['Indicator Code'] == 'EG.USE.ELEC.KH.PC']
-    econs_df.drop(['Indicator Name', 'Indicator Code'],
+    var_df =  df.loc[df['Indicator Code'] == indicator]
+    var_df.drop(['Indicator Name', 'Indicator Code'],
                   axis=1, inplace=True)
-    econs_df.reset_index(drop=True, inplace=True)
-    econs_df = econs_df.T
-    econs_df = econs_df.rename(columns=econs_df.iloc[0])
-    econs_df.drop(labels=['Country Name'],axis=0, inplace=True)
-    econs_df.rename(columns={'United Kingdom': 'UK',
+    var_df.reset_index(drop=True, inplace=True)
+    var_df = var_df.T
+    var_df = var_df.rename(columns=var_df.iloc[0])
+    var_df.drop(labels=['Country Name'],axis=0, inplace=True)
+    var_df.rename(columns={'United Kingdom': 'UK',
                              'Russian Federation': 'Russia',
                              'United States': 'US'}, inplace=True)
-    econs_df.reset_index(inplace=True)
-    econs_df.drop(econs_df.tail(1).index,inplace=True)
-    return econs_df
+    var_df.reset_index(inplace=True)
+    var_df.drop(var_df.tail(1).index,inplace=True)
+    return var_df
 
 
 def HeatmapPreprocess(df, country):
@@ -75,7 +75,6 @@ def HeatmapPreprocess(df, country):
     hdf = hdf.T
     hdf.reset_index(inplace=True)
     hdf = hdf.rename(columns=hdf.iloc[0])
-    #hdf.drop(labels=['Indicator Name'],axis=0, inplace=True)
     hdf.drop(0, inplace=True)
     hdf.drop(hdf.tail(3).index,inplace=True)
     hdf.rename(columns=
@@ -104,6 +103,29 @@ def HeatmapPreprocess(df, country):
     return hdf
 
 
+def ProcessCO2(df):
+    years = [1994, 1999, 2004, 2009, 2014, 2019]
+    columns_list = ['index', 'China', 'Germany', 'France', 'UK', 'India', 
+                    'Russia', 'US']
+    co2_df = pd.DataFrame(columns=columns_list)
+    for year in years:
+        temp = df[(df['index'] >= (year-4)) & (df['index'] <= year)]
+        temp_series = temp.mean()
+        temp_dict = temp_series.to_dict()
+        co2_df  = co2_df.append(temp_dict, ignore_index=True)
+    co2_df['index'] = co2_df['index'] + 2
+    co2_df.rename(columns={'index': 'Year'}, inplace=True)
+    co2_df['Year'] = co2_df['Year'].astype('int')
+    co2_df['Year'] = co2_df['Year'].astype('object')
+    co2_df = co2_df.T
+    co2_df.reset_index(inplace=True)
+    
+    header_row = co2_df.iloc[0]
+    co2_df = pd.DataFrame(co2_df.values[1:], columns=header_row)
+
+    return co2_df
+
+
 #main code
 # Reads data from the world bank climate data
 df = pd.read_csv('API_19_DS2_en_csv_v2_4902199.csv', skiprows=4)
@@ -112,36 +134,50 @@ df = FilterData(df)
 df = Preprocess(df)
 
 #electricity
-# edf = ElectricityConsumption(df)
+edf = VariableTrend(df, 'EG.USE.ELEC.KH.PC')
 
-# edf['index'] = edf['index'].astype('int')
-# edf = edf[edf['index'] > 1990]
-# edf = edf[edf['index'] < 2015]
-# edf['index']= pd.to_datetime(edf['index'], format='%Y')
+edf['index'] = edf['index'].astype('int')
+edf = edf[edf['index'] > 1990]
+edf = edf[edf['index'] < 2015]
+edf['index']= pd.to_datetime(edf['index'], format='%Y')
 
-# # line plot
-# plt.figure(figsize=(8,8), dpi=400)
-# plt.plot(edf['index'], edf['China'], label='China')
-# plt.plot(edf['index'], edf['Gesrmany'], label='Germany')
-# plt.plot(edf['index'], edf['France'], label='France')
-# plt.plot(edf['index'], edf['UK'], label='UK')
-# plt.plot(edf['index'], edf['India'], label='India')
-# plt.plot(edf['index'], edf['Russia'], label='Russia')
-# plt.plot(edf['index'], edf['US'], label='US')
-# plt.legend()
-# plt.xlabel('Years')
-# plt.ylabel('kilo Watt hour per capita')
-# plt.title('Electric power consumption between 1990 and 2014')
-# plt.show()
+# line plot
+plt.figure(figsize=(8,8), dpi=400)
+plt.plot(edf['index'], edf['China'], label='China')
+plt.plot(edf['index'], edf['Germany'], label='Germany')
+plt.plot(edf['index'], edf['France'], label='France')
+plt.plot(edf['index'], edf['UK'], label='UK')
+plt.plot(edf['index'], edf['India'], label='India')
+plt.plot(edf['index'], edf['Russia'], label='Russia')
+plt.plot(edf['index'], edf['US'], label='US')
 
-# correlation map
-hdf_Ge = HeatmapPreprocess(df, 'Germany')
+plt.xlabel('Years')
+plt.ylabel('kilo Watt hour per capita')
+plt.title('Electric power consumption between 1990 and 2014')
+plt.legend()
+plt.show()
+
+# heatmap
+hdf_Germany = HeatmapPreprocess(df, 'Germany')
+hdf_Germany.describe()
+ct.map_corr(hdf_Germany)
+
 hdf_China = HeatmapPreprocess(df, 'China')
-ct.map_corr(hdf_Ge)
+hdf_China.describe()
 ct.map_corr(hdf_China)
 
+co2 = VariableTrend(df, 'EN.ATM.CO2E.KT')
+co2['index'] = co2['index'].astype('int')
+co2 = co2[co2['index'] >= 1990]
+co2 = co2[co2['index'] <= 2019]
 
-#hdf.to_csv('file.csv')
 
-import seaborn as sb
-dataplot = sb.heatmap(hdf_China.corr(), cmap="YlGnBu")
+
+#average CO2
+avg_df = ProcessCO2(co2)
+
+avg_df.plot(x='Year',
+		kind='bar',
+		stacked=False,
+		title='Grouped Bar Graph with dataframe')
+
